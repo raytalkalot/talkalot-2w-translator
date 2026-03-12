@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>talkalot twoway translator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: white;
+      color: black;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: background-color 0.3s ease;
+    }
+
+    body.chromakey-bg {
+      background-color: #00FF00;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      position: relative;
+    }
+
+    .text-display {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 1280px;
+      text-align: center;
+      z-index: 10;
+    }
+
+   .text-box {
+      padding: 40px;
+      border-radius: 8px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+      transition: all 0.3s ease;
+      background-color: transparent;
+    }
+
+
+   .text-box.normal {
+      background-color: transparent;
+    }
+
+    .text-box.chromakey {
+      background-color: #00FF00;
+    }
+
+    .original-text,
+    .translated-text {
+      font-weight: bold;
+      text-shadow: 
+        -2px -2px 0 white,
+        2px -2px 0 white,
+        -2px 2px 0 white,
+        2px 2px 0 white,
+        -2px 0 0 white,
+        2px 0 0 white,
+        0 -2px 0 white,
+        0 2px 0 white;
+      color: black;
+    }
+
+    .translated-text {
+      font-style: italic;
+    }
+
+    .divider {
+      height: 2px;
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 20;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .text-display:hover .controls {
+      opacity: 1;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mic-btn {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .mic-btn:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+
+    .mic-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .settings-btn {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .settings-btn:hover {
+      background-color: #5a6268;
+    }
+
+    .settings-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+      z-index: 30;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .settings-panel.hidden {
+      display: none;
+    }
+
+    .settings-panel h3 {
+      margin-bottom: 15px;
+      font-size: 16px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .setting-item {
+      margin-bottom: 20px;
+    }
+
+    .setting-item label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .setting-item input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .setting-item input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+
+    #apiKeyInput {
+      color: white;
+      background-color: white;
+    }
+
+    #apiKeyInput::placeholder {
+      color: #ccc;
+    }
+
+    .setting-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      font-weight: normal;
+      cursor: pointer;
+    }
+
+    .value-display {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .error-msg {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .error-msg.hidden {
+      display: none;
+    }
+
+    .success-msg {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .success-msg.hidden {
+      display: none;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #6c757d;
+      margin-right: 8px;
+    }
+
+    .status-indicator.recording {
+      background-color: #dc3545;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="text-display" id="textDisplay">
+  <div class="text-box normal" id="textBox">
+    <div class="original-text" id="originalText">Ready</div>
+    <div class="divider"></div>
+    <div class="translated-text" id="translatedText">Ready</div>
+  </div>
+  <div class="controls">
+    <button class="mic-btn" id="startBtn">Start</button>
+    <button class="settings-btn" id="settingsBtn">Settings</button>
+  </div>
+</div>
+
+  <div class="settings-panel hidden" id="settingsPanel">
+    <h3>Settings</h3>
+    
+    <div id="errorMsg" class="error-msg hidden"></div>
+    <div id="successMsg" class="success-msg hidden"></div>
+
+    <div class="setting-item">
+      <label>Soniox API Key</label>
+      <input type="text" id="apiKeyInput" placeholder="Enter API Key" />
+      <button style="width: 100%; margin-top: 8px; background-color: #28a745; color: white;" id="saveApiKeyBtn">Save</button>
+    </div>
+
+    <div class="setting-item">
+      <label>Text Size: <span id="fontSizeValue">16</span>px</label>
+      <input type="range" id="fontSizeSlider" min="12" max="48" value="16" />
+    </div>
+
+  <div class="setting-item">
+    <label class="checkbox-label">
+      <input type="checkbox" id="chromakeyCheckbox" />
+      Enable Green Screen Background
+    </label>
+  </div>
+
+  <div class="setting-item">
+    <label>Reset Timer: <span id="clearTimeValue">5</span> seconds</label>
+    <input type="range" id="clearTimeSlider" min="3" max="10" value="5" />
+  </div>
+
+  <div class="setting-item">
+    <label>Input Text Limit: <span id="charLimitValue">80</span> characters</label>
+    <input type="range" id="charLimitSlider" min="20" max="150" value="80" />
+  </div>
+</div>
+
+<script type="module">
+  import { SonioxClient, BrowserPermissionResolver } from "https://cdn.jsdelivr.net/npm/@soniox/client@1.0.2/+esm";
+
+ // 키를 로컬에서로드함 load api key from local setting..?
+  let API_KEY = localStorage.getItem('soniox-api-key') || "";
+
+// UI
+  const textDisplay = document.getElementById('textDisplay');
+  const textBox = document.getElementById('textBox');
+  const originalTextEl = document.getElementById('originalText');
+  const translatedTextEl = document.getElementById('translatedText');
+  const startBtn = document.getElementById('startBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const fontSizeSlider = document.getElementById('fontSizeSlider');
+  const fontSizeValue = document.getElementById('fontSizeValue');
+  const chromakeyCheckbox = document.getElementById('chromakeyCheckbox');
+  const clearTimeSlider = document.getElementById('clearTimeSlider');
+  const clearTimeValue = document.getElementById('clearTimeValue');
+  const charLimitSlider = document.getElementById('charLimitSlider');
+  const charLimitValue = document.getElementById('charLimitValue');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const successMsg = document.getElementById('successMsg');
+
+// 함수자 number settings idk what these are in english 
+  let client = null;
+  let recording = null;
+  let isRecording = false;
+  let originalTextRef = '';
+  let translatedTextRef = '';
+  let inactivityTimeoutRef = null;
+  let clearTimeoutRef = null;
+
+  function showMessage(msg, isError = false) {   // 메세지 헬퍼
+    const target = isError ? errorMsg : successMsg;
+    target.textContent = msg;
+    target.classList.remove('hidden');
+    setTimeout(() => target.classList.add('hidden'), 3000);
+  }
+
+  // 헬퍼
+  function applyFontSize(size) {
+    originalTextEl.style.fontSize = `${size}px`;
+    translatedTextEl.style.fontSize = `${size}px`;
+  }
+
+  function applyChromaKey(enabled) {
+    if (enabled) {
+      document.body.classList.add('chromakey-bg');
+      textBox.classList.remove('normal');
+      textBox.classList.add('chromakey');
+    } else {
+      document.body.classList.remove('chromakey-bg');
+      textBox.classList.add('normal');
+      textBox.classList.remove('chromakey');
+    }
+  }
+
+  function countLines(text) {
+    if (!text) return 0;
+    return text.split('\n').length;
+  }
+
+  function clearNonFinalText() {
+    originalTextEl.textContent = originalTextRef;
+    translatedTextEl.textContent = translatedTextRef;
+  }
+
+  // load settings
+  function loadSettings() {
+ // Load API key
+    const savedApiKey = localStorage.getItem('soniox-api-key');
+    if (savedApiKey) {
+      apiKeyInput.value = savedApiKey;
+      API_KEY = savedApiKey;
+    }
+
+    const saved = localStorage.getItem('soniox-settings');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        if (settings.fontSize) {
+          fontSizeSlider.value = settings.fontSize;
+          fontSizeValue.textContent = settings.fontSize;
+          applyFontSize(settings.fontSize);
+        }
+        if (settings.useChromaKey !== undefined) {
+          chromakeyCheckbox.checked = settings.useChromaKey;
+          applyChromaKey(settings.useChromaKey);
+        }
+        if (settings.clearTime) {
+          clearTimeSlider.value = settings.clearTime;
+          clearTimeValue.textContent = settings.clearTime;
+        }
+        if (settings.charLimit) {
+          charLimitSlider.value = settings.charLimit;
+          charLimitValue.textContent = settings.charLimit;
+        }
+      } catch (e) {
+        console.error('Failed to load settings', e);
+      }
+    }
+  }
+
+  function saveSettings() {   // saved settings
+    const settings = {
+      fontSize: fontSizeSlider.value,
+      useChromaKey: chromakeyCheckbox.checked,
+      clearTime: clearTimeSlider.value,
+      charLimit: charLimitSlider.value
+    };
+    localStorage.setItem('soniox-settings', JSON.stringify(settings));
+  }
+
+// event liestner .. 
+  fontSizeSlider.addEventListener('input', () => {
+    fontSizeValue.textContent = fontSizeSlider.value;
+    applyFontSize(fontSizeSlider.value);
+    saveSettings();
+  });
+
+  chromakeyCheckbox.addEventListener('change', () => {
+    applyChromaKey(chromakeyCheckbox.checked);
+    saveSettings();
+  });
+
+  clearTimeSlider.addEventListener('input', () => {
+    clearTimeValue.textContent = clearTimeSlider.value;
+    saveSettings();
+  });
+
+  charLimitSlider.addEventListener('input', () => {
+    charLimitValue.textContent = charLimitSlider.value;
+    saveSettings();
+  });
+
+  saveApiKeyBtn.addEventListener('click', () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      showMessage('Please enter an API key.', true);
+      return;
+    }
+    localStorage.setItem('soniox-api-key', apiKey);
+    API_KEY = apiKey;
+    showMessage('API key saved successfully.');
+  });
+
+  settingsBtn.addEventListener('click', () => {
+    settingsPanel.classList.toggle('hidden');
+  });
+
+// 녹음시작
+  startBtn.addEventListener('click', async () => {
+    try {
+      if (isRecording) {
+// 녹음 멈추기
+        if (recording) {
+          await recording.stop();
+        }
+        isRecording = false;
+        startBtn.textContent = 'Start';
+        return;
+      }
+
+      if (!API_KEY) {
+        showMessage('Please set the Soniox API key in settings first.', true);
+        settingsPanel.classList.remove('hidden');
+        return;
+      }
+
+      startBtn.textContent = 'Connecting...';  // 녹음시작
+      startBtn.disabled = true;
+
+      client = new SonioxClient({
+        api_key: API_KEY,
+        permissions: new BrowserPermissionResolver()
+      });
+
+      const permission = await client.permissions.request('microphone');       // 마이크 허용 요청
+      if (permission.status !== 'granted') {
+        throw new Error('Microphone permission denied.');
+      }
+
+      // 이벤트 리스너 헨들러 붙이기
+      recording = client.realtime.record({
+        model: 'stt-rt-v4',
+        language_hints: ['en', 'ja'],
+        translation: {
+          type: 'two_way',
+          language_a: 'en',
+          language_b: 'ja',
+        },
+        enable_language_identification: true,
+      });
+
+      // 에러 핸들러
+      recording.on('error', (err) => {
+        console.error('Recording error:', err);
+        showMessage(`Error: ${err.message}`, true);
+        isRecording = false;
+        startBtn.textContent = 'Start';
+        startBtn.disabled = false;
+      });
+
+      // 스태터스 핸들러
+      recording.on('state_change', ({ new_state }) => {
+        if (new_state === 'recording') {
+          isRecording = true;
+          startBtn.textContent = 'Stop';
+          startBtn.disabled = false;
+          clearNonFinalText();
+        }
+      });
+
+      // 번역본
+      recording.on('result', ({ tokens }) => {
+        let originalFinal = '';
+        let originalNonFinal = '';
+        let translatedFinal = '';
+        let translatedNonFinal = '';
+        let hasNewInput = false;
+
+        tokens.forEach((token) => {
+          if (token.translation_status === 'original' || token.translation_status === 'none') {
+            if (token.is_final) {
+              originalFinal += token.text;
+              hasNewInput = true;
+            } else {
+              originalNonFinal += token.text;
+            }
+          } else if (token.translation_status === 'translation') {
+            if (token.is_final) {
+              translatedFinal += token.text;
+              hasNewInput = true;
+            } else {
+              translatedNonFinal += token.text;
+            }
+          }
+        });
+
+        // 원본
+        if (originalFinal) {
+          const charLimit = parseInt(charLimitSlider.value);
+          const shouldClearForCharLimit = originalTextRef.length >= charLimit;
+          const shouldClearForLines = countLines(originalTextRef) > 3;
+
+          if ((shouldClearForCharLimit || shouldClearForLines) && hasNewInput) {
+            originalTextRef = '';
+          }
+
+          originalTextRef += originalFinal;
+
+          //타이머
+          if (inactivityTimeoutRef) clearTimeout(inactivityTimeoutRef);
+          inactivityTimeoutRef = setTimeout(() => {
+          }, parseInt(clearTimeSlider.value) * 1000);
+
+          const periodCount = (originalTextRef.match(/\./g) || []).length;
+          if (periodCount >= 2) { // 몇줄썻는지
+            if (clearTimeoutRef) clearTimeout(clearTimeoutRef);
+            clearTimeoutRef = setTimeout(() => {
+            }, 2000);
+            // 2초유지
+          }
+        }
+
+        originalTextEl.textContent = originalTextRef + originalNonFinal;
+
+        // Translation handling
+        if (translatedFinal) {
+          const charLimit = parseInt(charLimitSlider.value);
+          const shouldClearForCharLimit = translatedTextRef.length >= charLimit;
+          const shouldClearForLines = countLines(translatedTextRef) > 3;
+
+          if ((shouldClearForCharLimit || shouldClearForLines) && hasNewInput) {
+            translatedTextRef = '';
+          }
+
+          translatedTextRef += translatedFinal;
+        }
+
+        translatedTextEl.textContent = translatedTextRef + translatedNonFinal;
+      });
+
+      // Recording starts automatically after calling client.realtime.record()
+
+    } catch (err) {
+      console.error('Recording initialization error:', err);
+      showMessage(`Error: ${err.message}`, true);
+      isRecording = false;
+      startBtn.textContent = 'Start';
+      startBtn.disabled = false;
+    }
+  });
+
+  // Initialize everything
+  loadSettings();
+</script>
+
+</body>
+</html>
