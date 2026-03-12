@@ -1,2 +1,4 @@
-# talkalot-2w-translator
-two way real time translator using Soniox API (which is quite fair priced i think) only working in JP-EN ATM its a patchwork project... you only need Soniox API for this to work copy and fix or add stuff all you want pls!!!!!
+two way real time translator using Soniox API (which is quite fair priced i think) only working in JP-EN ATM its a patchwork project...
+you only need Soniox API for this to work copy and fix or add stuff all you want pls!!!!!
+I made the API key text color white so no one can see the API i do not know how to senser texts..............
+huge inspo from https://sayonari.github.io/jimakuChan/ how do i like link this internerally?
